@@ -1,0 +1,219 @@
+import time
+import random
+
+# Define constants for game states
+GAME_OVER = "game_over"
+GAME_WON = "game_won"
+CONTINUE_GAME = "continue_game"
+
+# Define colors for text formatting
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+
+# Define a class for handling player's inventory
+class Inventory:
+    def __init__(self):
+        self.items = []
+
+    def add_item(self, item):
+        self.items.append(item)
+
+    def remove_item(self, item):
+        if item in self.items:
+            self.items.remove(item)
+
+    def check_inventory(self):
+        if len(self.items) == 0:
+            return "You don't have any items."
+        else:
+            return "Inventory: " + ", ".join(self.items)
+
+
+# Define a class for managing the game and its logic
+class TextAdventureGame:
+    def __init__(self):
+        self.current_room = None
+        self.game_state = CONTINUE_GAME
+        self.inventory = Inventory()
+        self.monster_encountered = False
+
+    def start_game(self):
+        self.setup_game()
+        while self.game_state == CONTINUE_GAME:
+            self.play_game()
+        if self.game_state == GAME_OVER:
+            print("\nGame Over. Better luck next time!")
+        elif self.game_state == GAME_WON:
+            print("\nCongratulations! You have won the game!")
+
+    def setup_game(self):
+        # Define rooms and their connections
+        room1 = Room("Hallway", "A dimly lit hallway.", None, "You see a door to the east and a staircase to the west.")
+        room2 = Room("Dining Room", "A large dining room with a chandelier.", room1, "You see a door to the south.")
+        room3 = Room("Kitchen", "A cluttered kitchen with old utensils.", room2, "You see a door to the north.")
+        room4 = Room("Cellar", "A cold and dark cellar with cobwebs.", room1, "You see a staircase going up.")
+        room5 = Room("Bedroom", "A dusty bedroom with a creaky bed.", room4, "You see a door to the west.")
+        room6 = Room("Treasure Room", "A room filled with glittering treasure!", room5, "You see a door to the south.")
+
+        # Set starting room
+        self.current_room = room1
+
+        # Define items
+        key = Item("Key", "An old rusty key.")
+        sword = Item("Sword", "A shiny sword.")
+
+        # Place items in rooms
+        room3.add_item(key)
+        room6.add_item(sword)
+
+        # Define monsters
+        monster = Monster("Goblin", "A nasty goblin with a club.")
+
+        # Place monsters in rooms
+        room5.add_monster(monster)
+
+    def play_game(self):
+        # Display current room description and options
+        self.print_room_details()
+
+        # Player action
+        action = input("What would you like to do? (explore / take <item> / use <item> / check inventory / quit): ").lower().strip()
+
+        if action == "explore":
+            self.explore_room()
+        elif action.startswith("take "):
+            item_name = action.split(" ", 1)[1]
+            self.take_item(item_name)
+        elif action.startswith("use "):
+            item_name = action.split(" ", 1)[1]
+            self.use_item(item_name)
+        elif action == "check inventory":
+            print(self.inventory.check_inventory())
+        elif action == "quit":
+            self.game_state = GAME_OVER
+        else:
+            print("Invalid command. Try again.")
+
+        # Check game state
+        if self.current_room.has_monster() and not self.monster_encountered:
+            self.encounter_monster()
+        elif self.current_room == "Treasure Room" and "Key" not in self.inventory.items:
+            print("You need a key to unlock the treasure room!")
+        elif self.current_room == "Treasure Room" and "Key" in self.inventory.items:
+            self.game_state = GAME_WON
+
+    def print_room_details(self):
+        print("\n--------------------------------------")
+        print(f"{bcolors.HEADER}{self.current_room.name}{bcolors.ENDC}")
+        print(self.current_room.description)
+        print(self.current_room.exits)
+        if len(self.current_room.items) > 0:
+            print(f"You see the following items in the room: {', '.join([item.name for item in self.current_room.items])}")
+        print("--------------------------------------\n")
+
+    def explore_room(self):
+        if self.current_room.name == "Cellar" and not self.monster_encountered:
+            print("You hear a growling noise coming from the dark corner of the cellar...")
+            time.sleep(1)
+            print("Suddenly, a monster jumps out at you!")
+            self.encounter_monster()
+        else:
+            print("You explore the room but find nothing of interest.")
+
+    def take_item(self, item_name):
+        if len(self.current_room.items) == 0:
+            print("There are no items to take in this room.")
+        else:
+            for item in self.current_room.items:
+                if item.name.lower() == item_name.lower():
+                    print(f"You take the {item.name}.")
+                    self.inventory.add_item(item)
+                    self.current_room.remove_item(item)
+                    return
+            print(f"There is no {item_name} in this room.")
+
+    def use_item(self, item_name):
+        if item_name.lower() == "sword" and "Sword" in self.inventory.items and self.current_room.has_monster():
+            print("You use the sword to defeat the monster!")
+            self.current_room.remove_monster()
+            self.inventory.remove_item("Sword")
+            self.monster_encountered = False
+        else:
+            print(f"You cannot use the {item_name} here.")
+
+    def encounter_monster(self):
+        monster = self.current_room.get_monster()
+        print(f"{bcolors.FAIL}You have encountered a {monster.name}! Prepare to fight!{bcolors.ENDC}")
+        time.sleep(1)
+        print(f"The {monster.name} attacks you with its {monster.weapon}.")
+        time.sleep(1)
+        print(f"You try to defend yourself...")
+        time.sleep(1)
+
+        # Simulate a battle (random outcome)
+        if random.randint(1, 2) == 1:
+            print(f"{bcolors.FAIL}You were defeated by the {monster.name}.{bcolors.ENDC}")
+            self.game_state = GAME_OVER
+        else:
+            print(f"{bcolors.OKGREEN}You defeated the {monster.name}!{bcolors.ENDC}")
+            self.monster_encountered = True
+
+    def game_over(self):
+        self.game_state = GAME_OVER
+
+# Define a class for rooms
+class Room:
+    def __init__(self, name, description, parent=None, exits=""):
+        self.name = name
+        self.description = description
+        self.exits = exits
+        self.items = []
+        self.parent = parent
+        self.monster = None
+
+    def add_item(self, item):
+        self.items.append(item)
+
+    def remove_item(self, item):
+        if item in self.items:
+            self.items.remove(item)
+
+    def add_monster(self, monster):
+        self.monster = monster
+
+    def remove_monster(self):
+        self.monster = None
+
+    def has_monster(self):
+        return self.monster is not None
+
+    def get_monster(self):
+        return self.monster
+
+
+# Define a class for items
+class Item:
+    def __init__(self, name, description):
+        self.name = name
+        self.description = description
+
+# Define a class for monsters
+class Monster:
+    def __init__(self, name, weapon):
+        self.name = name
+        self.weapon = weapon
+
+
+# Main function to start the game
+def main():
+    game = TextAdventureGame()
+    game.start_game()
+
+if __name__ == "__main__":
+    main()
